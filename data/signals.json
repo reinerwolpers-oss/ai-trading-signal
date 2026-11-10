@@ -1,1 +1,37 @@
-{"updated_at_utc":null,"interval":"5min","symbols":{},"errors":{},"last_alerts":{},"provider":"Twelve Data","note":"Warte auf ersten Workflow-Lauf."}
+{
+  "updated_at_utc": "2026-11-10T10:29:10.950218+00:00",
+  "interval": "5min",
+  "symbols": {
+    "TSLA": {
+      "price": 377.92,
+      "ema9": 379.7646,
+      "ema21": 379.6818,
+      "rsi14": 37.31,
+      "signal": "BEOBACHTEN",
+      "candle_time_ny": "2026-11-09 15:55:00",
+      "currency": "USD"
+    },
+    "NVDA": {
+      "price": 178.6,
+      "ema9": 177.9892,
+      "ema21": 177.5449,
+      "rsi14": 61.87,
+      "signal": "BEOBACHTEN",
+      "candle_time_ny": "2026-11-09 15:55:00",
+      "currency": "USD"
+    },
+    "AMD": {
+      "price": 509.01,
+      "ema9": 510.7456,
+      "ema21": 509.9364,
+      "rsi14": 49.67,
+      "signal": "BEOBACHTEN",
+      "candle_time_ny": "2026-11-09 15:55:00",
+      "currency": "USD"
+    }
+  },
+  "errors": {},
+  "last_alerts": {},
+  "provider": "Twelve Data",
+  "note": "Testversion. Daten können verzögert sein. Keine Anlageberatung."
+}
