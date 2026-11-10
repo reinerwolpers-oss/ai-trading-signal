@@ -1,7 +1,8 @@
+"""AI Trading Signal 2.0: NYSE 5-minute monitor with ntfy alerts."""
 import datetime as dt
 import json
 import os
-import pathlib
+from pathlib import Path
 import time
 import urllib.error
 import urllib.parse
@@ -10,11 +11,12 @@ from zoneinfo import ZoneInfo
 
 import pandas_market_calendars as mcal
 
-ROOT = pathlib.Path(__file__).resolve().parent
+ROOT = Path(__file__).resolve().parent
 OUT = ROOT / 'data' / 'signals.json'
 SYMBOLS = ('TSLA', 'NVDA', 'AMD')
 NY = ZoneInfo('America/New_York')
 UTC = dt.timezone.utc
+FAILURE_THRESHOLD = 3
 
 
 def exchange_session(now_utc):
@@ -29,24 +31,24 @@ def exchange_session(now_utc):
 
 
 def ema(values, n):
-    out = []
-    value = values[0]
-    k = 2 / (n + 1)
-    for x in values:
-        value = x * k + value * (1 - k)
-        out.append(value)
-    return out
+    result = []
+    current = values[0]
+    weight = 2 / (n + 1)
+    for value in values:
+        current = value * weight + current * (1 - weight)
+        result.append(current)
+    return result
 
 
 def rsi(values, n=14):
     changes = [values[i] - values[i - 1] for i in range(1, len(values))]
     if len(changes) < n:
         raise ValueError('Zu wenig Werte fuer RSI')
-    gain = sum(max(x, 0) for x in changes[:n]) / n
-    loss = sum(max(-x, 0) for x in changes[:n]) / n
-    for x in changes[n:]:
-        gain = (gain * (n - 1) + max(x, 0)) / n
-        loss = (loss * (n - 1) + max(-x, 0)) / n
+    gain = sum(max(v, 0) for v in changes[:n]) / n
+    loss = sum(max(-v, 0) for v in changes[:n]) / n
+    for value in changes[n:]:
+        gain = (gain * (n - 1) + max(value, 0)) / n
+        loss = (loss * (n - 1) + max(-value, 0)) / n
     if loss == 0:
         return 100.0 if gain > 0 else 50.0
     return 100 - 100 / (1 + gain / loss)
@@ -57,25 +59,25 @@ def fetch(symbol, key, now_utc):
         'symbol': symbol, 'interval': '5min', 'outputsize': 100,
         'apikey': key, 'timezone': 'America/New_York'
     })
-    url = 'https://api.twelvedata.com/time_series?' + params
-    request = urllib.request.Request(url, headers={'User-Agent': 'AITradingSignal/2.1'})
+    request = urllib.request.Request(
+        'https://api.twelvedata.com/time_series?' + params,
+        headers={'User-Agent': 'AITradingSignal/2.0'})
     for attempt in range(3):
         try:
             with urllib.request.urlopen(request, timeout=25) as response:
-                obj = json.load(response)
-            if obj.get('status') == 'error' or 'values' not in obj:
-                raise RuntimeError(obj.get('message', 'Keine Kursdaten von Twelve Data'))
+                payload = json.load(response)
+            if payload.get('status') == 'error' or not isinstance(payload.get('values'), list):
+                raise RuntimeError(payload.get('message', 'Keine Kursdaten von Twelve Data'))
             break
         except (urllib.error.URLError, TimeoutError) as exc:
             if attempt == 2:
                 raise RuntimeError(f'API-Verbindung fehlgeschlagen: {exc}') from exc
             time.sleep(2 ** attempt)
-    rows = sorted(obj['values'], key=lambda v: v['datetime'])
-    finished = []
-    for row in rows:
-        candle_start = dt.datetime.fromisoformat(row['datetime']).replace(tzinfo=NY)
-        if candle_start + dt.timedelta(minutes=5) <= now_utc.astimezone(NY):
-            finished.append(row)
+    rows = sorted(payload['values'], key=lambda item: item['datetime'])
+    now_ny = now_utc.astimezone(NY)
+    finished = [row for row in rows if
+                dt.datetime.fromisoformat(row['datetime']).replace(tzinfo=NY)
+                + dt.timedelta(minutes=5) <= now_ny]
     if len(finished) < 35:
         raise RuntimeError(f'Zu wenig abgeschlossene Kerzen: {len(finished)}')
     last_start = dt.datetime.fromisoformat(finished[-1]['datetime']).replace(tzinfo=NY)
@@ -85,10 +87,10 @@ def fetch(symbol, key, now_utc):
 
 
 def publish(topic, title, message, priority='default', tags='chart_with_upwards_trend'):
-    url = 'https://ntfy.sh/' + urllib.parse.quote(topic, safe='')
-    request = urllib.request.Request(url, data=message.encode('utf-8'), method='POST', headers={
-        'Title': title, 'Priority': priority, 'Tags': tags
-    })
+    request = urllib.request.Request(
+        'https://ntfy.sh/' + urllib.parse.quote(topic, safe=''),
+        data=message.encode('utf-8'), method='POST',
+        headers={'Title': title, 'Priority': priority, 'Tags': tags})
     with urllib.request.urlopen(request, timeout=20) as response:
         response.read()
 
@@ -110,12 +112,20 @@ def main():
     if OUT.exists():
         try:
             old = json.loads(OUT.read_text(encoding='utf-8'))
-        except (ValueError, OSError):
-            print('Warnung: Bisherige signals.json nicht lesbar')
+            if not isinstance(old, dict):
+                raise ValueError('Ungueltiges JSON-Format')
+        except (ValueError, OSError) as exc:
+            print(f'WARNUNG: Vorheriger Zustand nicht lesbar: {exc}')
+            old = {}
 
     results, errors = {}, {}
-    sent = dict(old.get('last_alerts', {}))
+    sent = dict(old.get('last_alerts') or {})
+    health = dict(old.get('api_health') or {})
+    push_errors = []
     for symbol in SYMBOLS:
+        state = dict(health.get(symbol) or {})
+        failures = int(state.get('consecutive_failures', 0))
+        warned = bool(state.get('warning_sent', False))
         try:
             rows = fetch(symbol, key, now)
             closes = [float(row['close']) for row in rows]
@@ -132,121 +142,61 @@ def main():
                 'signal': signal, 'candle_time_ny': stamp, 'currency': 'USD',
                 'stale': False, 'checked_at_utc': now.isoformat()
             }
+            # Only mark an alert as delivered after ntfy accepts it.
+            if warned:
+                try:
+                    publish(topic, f'AI Trading Signal | {symbol} API wieder online',
+                            f'{symbol}: Kursdaten wieder verfuegbar.', 'default', 'white_check_mark')
+                    warned = False
+                    print(f'API-Entwarnung gesendet: {symbol}')
+                except Exception as exc:
+                    push_errors.append(f'{symbol} Entwarnung: {exc}')
             if signal != 'BEOBACHTEN' and sent.get(symbol) != identifier:
-                publish(topic, f'AI Trading Signal | {symbol} {signal}',
-                        f'{symbol}: {signal} bei {closes[-1]:.2f} USD. EMA 9/21, RSI {r:.1f}. Technisches Signal, keine Anlageberatung.')
-                sent[symbol] = identifier
-                print(f'Push gesendet: {identifier}')
-            else:
-                print(f'{symbol}: {signal}, {closes[-1]:.2f} USD')
+                try:
+                    publish(topic, f'AI Trading Signal | {symbol} {signal}',
+                            f'{symbol}: {signal} bei {closes[-1]:.2f} USD. EMA 9/21, RSI {r:.1f}. Technisches Signal, keine Anlageberatung.')
+                    sent[symbol] = identifier
+                    print(f'Signal-Push gesendet: {identifier}')
+                except Exception as exc:
+                    push_errors.append(f'{symbol} Signal: {exc}')
+            print(f'{symbol}: {signal}, {closes[-1]:.2f} USD')
+            health[symbol] = {'consecutive_failures': 0, 'warning_sent': warned,
+                              'last_success_utc': now.isoformat()}
         except Exception as exc:
             errors[symbol] = str(exc)
-            print(f'FEHLER {symbol}: {exc}')
-            if symbol in old.get('symbols', {}):
+            failures += 1
+            print(f'API-FEHLER {symbol} ({failures}/{FAILURE_THRESHOLD}): {exc}')
+            if failures >= FAILURE_THRESHOLD and not warned:
+                try:
+                    publish(topic, f'AI Trading Signal | {symbol} API-Fehler',
+                            f'{symbol}: {failures} aufeinanderfolgende Kurspruefungen fehlgeschlagen. Ursache: {str(exc)[:200]}',
+                            'high', 'warning')
+                    warned = True
+                    print(f'API-Warnung gesendet: {symbol}')
+                except Exception as push_exc:
+                    push_errors.append(f'{symbol} API-Warnung: {push_exc}')
+            health[symbol] = {'consecutive_failures': failures,
+                              'warning_sent': warned,
+                              'last_success_utc': state.get('last_success_utc')}
+            if symbol in (old.get('symbols') or {}):
                 results[symbol] = dict(old['symbols'][symbol], stale=True)
 
     data = {
         'updated_at_utc': now.isoformat(), 'interval': '5min',
         'symbols': results, 'errors': errors, 'last_alerts': sent,
+        'api_health': health, 'notification_errors': push_errors,
         'provider': 'Twelve Data',
         'note': 'Technische Signale. Verzoegerte Daten moeglich. Keine Anlageberatung.'
     }
     OUT.parent.mkdir(parents=True, exist_ok=True)
     OUT.write_text(json.dumps(data, indent=2, ensure_ascii=False) + '\n', encoding='utf-8')
+    if push_errors:
+        print('PUSH-FEHLER:', '; '.join(push_errors))
     if errors:
         raise SystemExit('Kurspruefung teilweise fehlgeschlagen: ' + ', '.join(errors))
+    if push_errors:
+        raise SystemExit('Benachrichtigungen fehlgeschlagen')
 
 
 if __name__ == '__main__':
     main()
-import json, os, urllib.request, urllib.parse, datetime, pathlib
-ROOT=pathlib.Path(__file__).parent
-OUT=ROOT/'data'/'signals.json'
-SYMBOLS=['TSLA','NVDA','AMD']
-
-
-from zoneinfo import ZoneInfo
-
-def market_is_open():
-    now = datetime.datetime.now(
-        ZoneInfo("America/New_York")
-    )
-
-    if now.weekday() >= 5:
-        return False
-
-    opening = datetime.time(9, 30)
-    closing = datetime.time(16, 0)
-
-    return opening <= now.time() < closing
-
-
-def ema(values,n):
-    v=values[0]; out=[]; k=2/(n+1)
-    for x in values:
-        v=x*k+v*(1-k);out.append(v)
-    return out
-
-def rsi(values,n=14):
-    changes=[values[i]-values[i-1] for i in range(1,len(values))]
-    if len(changes)<n:return None
-    gain=sum(max(x,0) for x in changes[:n])/n
-    loss=sum(max(-x,0) for x in changes[:n])/n
-    for x in changes[n:]:
-        gain=(gain*(n-1)+max(x,0))/n
-        loss=(loss*(n-1)+max(-x,0))/n
-    return 100 if loss==0 else 100-100/(1+gain/loss)
-
-def fetch(symbol,key):
-    params=urllib.parse.urlencode({'symbol':symbol,'interval':'5min','outputsize':100,'apikey':key,'timezone':'America/New_York'})
-    req=urllib.request.Request('https://api.twelvedata.com/time_series?'+params,headers={'User-Agent':'AITradingSignal/2.0'})
-    with urllib.request.urlopen(req,timeout=25) as response: obj=json.load(response)
-    if obj.get('status')=='error' or 'values' not in obj:raise RuntimeError(obj.get('message','Keine Kursdaten'))
-    rows=sorted(obj['values'],key=lambda v:v['datetime'])
-    # Exclude the current, potentially incomplete candle: only include bars whose end is <= now NY.
-    from zoneinfo import ZoneInfo
-    now=datetime.datetime.now(ZoneInfo('America/New_York'))
-    rows=[v for v in rows if datetime.datetime.fromisoformat(v['datetime']).replace(tzinfo=ZoneInfo('America/New_York'))+datetime.timedelta(minutes=5)<=now]
-    if len(rows)<35:raise RuntimeError('Weniger als 35 abgeschlossene Kerzen')
-    return rows
-
-def publish(topic,symbol,signal,price,stamp):
-    msg=f'{symbol}: {signal} bei {price:.2f} USD (5-Minuten-EMA 9/21, RSI-Filter). Keine Anlageberatung.'
-    req=urllib.request.Request('https://ntfy.sh/'+urllib.parse.quote(topic,safe=''),data=msg.encode(),method='POST',headers={'Title':'AI Trading Signal','Priority':'default','Tags':'chart_with_upwards_trend'})
-    with urllib.request.urlopen(req,timeout=20) as r:r.read()
-
-def main():
-    
-    if not market_is_open():
-        print("US-Boerse geschlossen. Keine Kurspruefung.")
-        return
-
-    old={}
-    if OUT.exists():
-        try:old=json.loads(OUT.read_text())
-        except Exception:pass
-    key=os.environ.get('TWELVE_DATA_API_KEY','').strip();topic=os.environ.get('NTFY_TOPIC','').strip()
-    if not key:raise SystemExit('GitHub Secret TWELVE_DATA_API_KEY fehlt')
-    now=datetime.datetime.now(datetime.timezone.utc).isoformat()
-    results={}; errors={}; sent=dict(old.get('last_alerts',{}))
-    for symbol in SYMBOLS:
-        try:
-            rows=fetch(symbol,key);closes=[float(v['close']) for v in rows]
-            e9=ema(closes,9);e21=ema(closes,21);r=rsi(closes)
-            up=e9[-2]<=e21[-2] and e9[-1]>e21[-1]
-            down=e9[-2]>=e21[-2] and e9[-1]<e21[-1]
-            # Conservative RSI confirmation: buy 50-70; sell 30-50.
-            signal='KAUF' if up and 50<=r<=70 else 'VERKAUF' if down and 30<=r<=50 else 'BEOBACHTEN'
-            stamp=rows[-1]['datetime'];identifier=f'{symbol}:{signal}:{stamp}'
-            results[symbol]={'price':round(closes[-1],4),'ema9':round(e9[-1],4),'ema21':round(e21[-1],4),'rsi14':round(r,2),'signal':signal,'candle_time_ny':stamp,'currency':'USD'}
-            if signal!='BEOBACHTEN' and sent.get(symbol)!=identifier and topic:
-                publish(topic,symbol,signal,closes[-1],stamp)
-                sent[symbol]=identifier
-        except Exception as ex:
-            errors[symbol]=str(ex)
-            if symbol in old.get('symbols',{}):results[symbol]=old['symbols'][symbol]
-    data={'updated_at_utc':now,'interval':'5min','symbols':results,'errors':errors,'last_alerts':sent,'provider':'Twelve Data','note':'Testversion. Daten können verzögert sein. Keine Anlageberatung.'}
-    OUT.parent.mkdir(exist_ok=True);OUT.write_text(json.dumps(data,indent=2,ensure_ascii=False)+'\n')
-    if errors:print('Fehler:',errors)
-    if not results:raise SystemExit('Keine Daten vorhanden')
-if __name__=='__main__':main()
