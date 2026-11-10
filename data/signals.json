@@ -1,32 +1,32 @@
 {
-  "updated_at_utc": "2026-11-10T20:16:17.205078+00:00",
+  "updated_at_utc": "2026-11-10T20:57:48.695110+00:00",
   "interval": "5min",
   "symbols": {
     "TSLA": {
-      "price": 377.59,
-      "ema9": 377.7966,
-      "ema21": 377.5261,
-      "rsi14": 51.69,
+      "price": 379.01,
+      "ema9": 378.0794,
+      "ema21": 377.787,
+      "rsi14": 62.2,
       "signal": "BEOBACHTEN",
-      "candle_time_ny": "2026-11-10 15:10:00",
+      "candle_time_ny": "2026-11-10 15:50:00",
       "currency": "USD"
     },
     "NVDA": {
-      "price": 168.21,
-      "ema9": 167.3481,
-      "ema21": 167.5368,
-      "rsi14": 54.58,
+      "price": 168.76,
+      "ema9": 168.2512,
+      "ema21": 168.0023,
+      "rsi14": 58.43,
       "signal": "BEOBACHTEN",
-      "candle_time_ny": "2026-11-10 15:10:00",
+      "candle_time_ny": "2026-11-10 15:50:00",
       "currency": "USD"
     },
     "AMD": {
-      "price": 516.71,
-      "ema9": 514.9641,
-      "ema21": 513.5708,
-      "rsi14": 59.92,
+      "price": 516.75,
+      "ema9": 515.1689,
+      "ema21": 514.4929,
+      "rsi14": 56.85,
       "signal": "BEOBACHTEN",
-      "candle_time_ny": "2026-11-10 15:10:00",
+      "candle_time_ny": "2026-11-10 15:50:00",
       "currency": "USD"
     }
   },
