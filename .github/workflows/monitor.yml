@@ -1,3 +1,78 @@
+name: AI Trading Signal Monitor
+
+on:
+  workflow_dispatch:
+    inputs:
+      test_notification:
+        description: "Simuliertes NVIDIA-Kaufsignal ans iPhone senden"
+        type: boolean
+        required: false
+        default: false
+  schedule:
+    # UTC: deckt NYSE reguläre Sitzungen in Sommer- und Winterzeit ab.
+    # Die Python-Börsenkalenderprüfung entscheidet über tatsächliche Handelszeiten.
+    - cron: "*/5 13-22 * * 1-5"
+
+permissions:
+  contents: write
+
+concurrency:
+  group: trading-signal-monitor
+  cancel-in-progress: false
+
+jobs:
+  monitor:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - name: Repository laden
+        id: checkout
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: true
+
+      - name: Python installieren
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Abhaengigkeiten installieren
+        run: python -m pip install --disable-pip-version-check pandas_market_calendars
+
+      - name: iPhone Push-Test
+        if: ${{ inputs.test_notification == true }}
+        env:
+          NTFY_TOPIC: ${{ secrets.NTFY_TOPIC }}
+        run: |
+          test -n "$NTFY_TOPIC" || { echo "NTFY_TOPIC fehlt"; exit 1; }
+          curl --fail-with-body --show-error --retry 2 \
+            -H "Title: AI Trading Signal 2.0 | TEST" \
+            -H "Priority: high" \
+            -H "Tags: chart_with_upwards_trend" \
+            -d "SIMULATION: NVIDIA (NVDA) KAUFSIGNAL. Keine echte Handelsentscheidung und keine Order." \
+            "https://ntfy.sh/$NTFY_TOPIC"
+
+      - name: Trading-Signale pruefen
+        env:
+          TWELVE_DATA_API_KEY: ${{ secrets.TWELVE_DATA_API_KEY }}
+          NTFY_TOPIC: ${{ secrets.NTFY_TOPIC }}
+        run: python monitor.py
+
+      - name: Signaldaten speichern
+        if: always() && steps.checkout.outcome != 'failure'
+        run: |
+          if [ ! -f data/signals.json ]; then
+            echo "Keine Signaldaten zum Speichern"
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add data/signals.json
+          if ! git diff --cached --quiet; then
+            git commit -m "Update trading signals"
+            git pull --rebase origin main
+            git push origin HEAD:main
+          fi
 
 name: AI Trading Signal Monitor
 
