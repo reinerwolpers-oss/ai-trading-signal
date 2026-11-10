@@ -3,6 +3,23 @@ ROOT=pathlib.Path(__file__).parent
 OUT=ROOT/'data'/'signals.json'
 SYMBOLS=['TSLA','NVDA','AMD']
 
+
+from zoneinfo import ZoneInfo
+
+def market_is_open():
+    now = datetime.datetime.now(
+        ZoneInfo("America/New_York")
+    )
+
+    if now.weekday() >= 5:
+        return False
+
+    opening = datetime.time(9, 30)
+    closing = datetime.time(16, 0)
+
+    return opening <= now.time() < closing
+
+
 def ema(values,n):
     v=values[0]; out=[]; k=2/(n+1)
     for x in values:
@@ -38,6 +55,11 @@ def publish(topic,symbol,signal,price,stamp):
     with urllib.request.urlopen(req,timeout=20) as r:r.read()
 
 def main():
+    
+    if not market_is_open():
+        print("US-Boerse geschlossen. Keine Kurspruefung.")
+        return
+
     old={}
     if OUT.exists():
         try:old=json.loads(OUT.read_text())
