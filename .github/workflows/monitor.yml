@@ -74,7 +74,6 @@ jobs:
             git push origin HEAD:main
           fi
 
-name: AI Trading Signal Monitor
 
 
 on:
