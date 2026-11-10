@@ -1,8 +1,15 @@
 
 name: AI Trading Signal Monitor
 
+
 on:
   workflow_dispatch:
+    inputs:
+      test_notification:
+        description: "iPhone-Testbenachrichtigung senden"
+        type: boolean
+        required: false
+        default: false
   schedule:
     - cron: "*/5 13-22 * * 1-5"
 
@@ -29,6 +36,22 @@ jobs:
 
       - name: Abhaengigkeiten installieren
         run: pip install requests
+
+      - name: iPhone Push-Test
+        if: ${{ inputs.test_notification == true }}
+        env:
+          NTFY_TOPIC: ${{ secrets.NTFY_TOPIC }}
+        run: |
+          if [ -z "$NTFY_TOPIC" ]; then
+            echo "NTFY_TOPIC fehlt"
+            exit 1
+          fi
+          curl --fail-with-body --show-error \
+            --retry 2 \
+            -H "Title: AI Trading Signal 2.0" \
+            -H "Tags: chart_with_upwards_trend" \
+            -d "GitHub Actions Push-Test erfolgreich!" \
+            "https://ntfy.sh/$NTFY_TOPIC"
 
       - name: Trading-Signale pruefen
         env:
