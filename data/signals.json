@@ -1,37 +1,61 @@
 {
-  "updated_at_utc": "2026-11-10T20:57:48.695110+00:00",
+  "updated_at_utc": "2026-11-11T19:59:10.868037+00:00",
   "interval": "5min",
   "symbols": {
     "TSLA": {
-      "price": 379.01,
-      "ema9": 378.0794,
-      "ema21": 377.787,
-      "rsi14": 62.2,
+      "price": 391.885,
+      "ema9": 392.3437,
+      "ema21": 392.7214,
+      "rsi14": 40.05,
       "signal": "BEOBACHTEN",
-      "candle_time_ny": "2026-11-10 15:50:00",
-      "currency": "USD"
+      "candle_time_ny": "2026-11-11 14:50:00",
+      "currency": "USD",
+      "stale": false,
+      "checked_at_utc": "2026-11-11T19:59:10.868037+00:00"
     },
     "NVDA": {
-      "price": 168.76,
-      "ema9": 168.2512,
-      "ema21": 168.0023,
-      "rsi14": 58.43,
+      "price": 175.81,
+      "ema9": 175.6891,
+      "ema21": 175.9637,
+      "rsi14": 47.92,
       "signal": "BEOBACHTEN",
-      "candle_time_ny": "2026-11-10 15:50:00",
-      "currency": "USD"
+      "candle_time_ny": "2026-11-11 14:50:00",
+      "currency": "USD",
+      "stale": false,
+      "checked_at_utc": "2026-11-11T19:59:10.868037+00:00"
     },
     "AMD": {
-      "price": 516.75,
-      "ema9": 515.1689,
-      "ema21": 514.4929,
-      "rsi14": 56.85,
+      "price": 560.2,
+      "ema9": 560.9187,
+      "ema21": 561.1218,
+      "rsi14": 49.24,
       "signal": "BEOBACHTEN",
-      "candle_time_ny": "2026-11-10 15:50:00",
-      "currency": "USD"
+      "candle_time_ny": "2026-11-11 14:50:00",
+      "currency": "USD",
+      "stale": false,
+      "checked_at_utc": "2026-11-11T19:59:10.868037+00:00"
     }
   },
   "errors": {},
   "last_alerts": {},
+  "api_health": {
+    "TSLA": {
+      "consecutive_failures": 0,
+      "warning_sent": false,
+      "last_success_utc": "2026-11-11T19:59:10.868037+00:00"
+    },
+    "NVDA": {
+      "consecutive_failures": 0,
+      "warning_sent": false,
+      "last_success_utc": "2026-11-11T19:59:10.868037+00:00"
+    },
+    "AMD": {
+      "consecutive_failures": 0,
+      "warning_sent": false,
+      "last_success_utc": "2026-11-11T19:59:10.868037+00:00"
+    }
+  },
+  "notification_errors": [],
   "provider": "Twelve Data",
-  "note": "Testversion. Daten können verzögert sein. Keine Anlageberatung."
+  "note": "Technische Signale. Verzoegerte Daten moeglich. Keine Anlageberatung."
 }
