@@ -1,39 +1,39 @@
 {
-  "updated_at_utc": "2026-11-11T19:59:10.868037+00:00",
+  "updated_at_utc": "2026-11-12T20:37:49.411465+00:00",
   "interval": "5min",
   "symbols": {
     "TSLA": {
-      "price": 391.885,
-      "ema9": 392.3437,
-      "ema21": 392.7214,
-      "rsi14": 40.05,
+      "price": 398.59,
+      "ema9": 395.2991,
+      "ema21": 393.2696,
+      "rsi14": 79.43,
       "signal": "BEOBACHTEN",
-      "candle_time_ny": "2026-11-11 14:50:00",
+      "candle_time_ny": "2026-11-12 15:30:00",
       "currency": "USD",
       "stale": false,
-      "checked_at_utc": "2026-11-11T19:59:10.868037+00:00"
+      "checked_at_utc": "2026-11-12T20:37:49.411465+00:00"
     },
     "NVDA": {
-      "price": 175.81,
-      "ema9": 175.6891,
-      "ema21": 175.9637,
-      "rsi14": 47.92,
+      "price": 163.2,
+      "ema9": 164.016,
+      "ema21": 164.2565,
+      "rsi14": 39.35,
       "signal": "BEOBACHTEN",
-      "candle_time_ny": "2026-11-11 14:50:00",
+      "candle_time_ny": "2026-11-12 15:30:00",
       "currency": "USD",
       "stale": false,
-      "checked_at_utc": "2026-11-11T19:59:10.868037+00:00"
+      "checked_at_utc": "2026-11-12T20:37:49.411465+00:00"
     },
     "AMD": {
-      "price": 560.2,
-      "ema9": 560.9187,
-      "ema21": 561.1218,
-      "rsi14": 49.24,
+      "price": 580.49,
+      "ema9": 583.3146,
+      "ema21": 583.1202,
+      "rsi14": 42.85,
       "signal": "BEOBACHTEN",
-      "candle_time_ny": "2026-11-11 14:50:00",
+      "candle_time_ny": "2026-11-12 15:30:00",
       "currency": "USD",
       "stale": false,
-      "checked_at_utc": "2026-11-11T19:59:10.868037+00:00"
+      "checked_at_utc": "2026-11-12T20:37:49.411465+00:00"
     }
   },
   "errors": {},
@@ -42,17 +42,17 @@
     "TSLA": {
       "consecutive_failures": 0,
       "warning_sent": false,
-      "last_success_utc": "2026-11-11T19:59:10.868037+00:00"
+      "last_success_utc": "2026-11-12T20:37:49.411465+00:00"
     },
     "NVDA": {
       "consecutive_failures": 0,
       "warning_sent": false,
-      "last_success_utc": "2026-11-11T19:59:10.868037+00:00"
+      "last_success_utc": "2026-11-12T20:37:49.411465+00:00"
     },
     "AMD": {
       "consecutive_failures": 0,
       "warning_sent": false,
-      "last_success_utc": "2026-11-11T19:59:10.868037+00:00"
+      "last_success_utc": "2026-11-12T20:37:49.411465+00:00"
     }
   },
   "notification_errors": [],
